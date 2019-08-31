@@ -17,12 +17,15 @@ set ( LUA_PATH "LUA_PATH" CACHE STRING "Environment variable to use as package.p
 set ( LUA_CPATH "LUA_CPATH" CACHE STRING "Environment variable to use as package.cpath." )
 set ( LUA_INIT "LUA_INIT" CACHE STRING "Environment variable for initial script." )
 
+# NOTE: A variable in cmake can have only one of following types: STRING, BOOL, PATH, FILEPATH or INTERNAL
+#       There are **NO** INTEGER/NUMBER types.
+
 option ( LUA_ANSI "Use only ansi features." OFF )
 option ( LUA_USE_RELATIVE_LOADLIB "Use modified loadlib.c with support for relative paths on posix systems." ON)
-set ( LUA_IDSIZE 60 CACHE NUMBER "gives the maximum size for the description of the source." )
+set ( LUA_IDSIZE 60 CACHE STRING "gives the maximum size for the description of the source." )
 set ( LUA_PROMPT "> " CACHE STRING "Is the default prompt used by stand-alone Lua." )
 set ( LUA_PROMPT2 ">> " CACHE STRING "Is the default continuation prompt used by stand-alone Lua." )
-set ( LUA_MAXINPUT 512 CACHE NUMBER "Is the maximum length for an input line in the stand-alone interpreter.")
+set ( LUA_MAXINPUT 512 CACHE STRING "Is the maximum length for an input line in the stand-alone interpreter.")
 
 # Version
 set ( MAJVER 2 )
@@ -47,11 +50,11 @@ option ( LUAJIT_CPU_SSE2 "Disable SSE2." OFF )
 option ( LUAJIT_CPU_NOCMOV "Disable NOCMOV." OFF )
 
 # Tunable variables
-set ( LUAI_MAXSTACK 65500 CACHE NUMBER "Max. # of stack slots for a thread (<64K)." )
-set ( LUAI_MAXCSTACK 8000 CACHE NUMBER "Max. # of stack slots for a C func (<10K)." )
-set ( LUAI_GCPAUSE 200 CACHE NUMBER "Pause GC until memory is at 200%." )
-set ( LUAI_GCMUL 200 CACHE NUMBER "Run GC at 200% of allocation speed." )
-set ( LUA_MAXCAPTURES 32 CACHE NUMBER "Max. pattern captures." )
+set ( LUAI_MAXSTACK 65500 CACHE STRING "Max. # of stack slots for a thread (<64K)." )
+set ( LUAI_MAXCSTACK 8000 CACHE STRING "Max. # of stack slots for a C func (<10K)." )
+set ( LUAI_GCPAUSE 200 CACHE STRING "Pause GC until memory is at 200%." )
+set ( LUAI_GCMUL 200 CACHE STRING "Run GC at 200% of allocation speed." )
+set ( LUA_MAXCAPTURES 32 CACHE STRING "Max. pattern captures." )
 
 ## SETUP
 set ( LUA_DIRSEP "/" )
@@ -303,13 +306,29 @@ set ( LJCORE_C
   ${LJLIB_C}
 )
 
-add_library ( liblua SHARED ${LJCORE_C} ${DEPS} )
-target_link_libraries ( liblua ${LIBS} )
-set_target_properties ( liblua PROPERTIES OUTPUT_NAME lua CLEAN_DIRECT_OUTPUT 1 )
+option (BUILD_SHARED ON "Build LuaJIT shared library")
 
-## LuaJIT Executable
-add_executable ( luajit src/luajit.c src/luajit.rc )
-target_link_libraries ( luajit liblua )
+if (BUILD_SHARED)
+  add_library ( liblua SHARED ${LJCORE_C} ${DEPS} )
+  target_link_libraries ( liblua ${LIBS} )
+  set_target_properties ( liblua PROPERTIES OUTPUT_NAME lua CLEAN_DIRECT_OUTPUT 1 )
+endif (BUILD_SHARED)
+
+option (BUILD_STATIC OFF "Build LuaJIT static library")
+
+if (BUILD_STATIC)
+  add_library ( liblua_static STATIC ${LJCORE_C} ${DEPS} )
+  target_link_libraries ( liblua_static ${LIBS} )
+  set_target_properties ( liblua_static PROPERTIES OUTPUT_NAME lua CLEAN_DIRECT_OUTPUT 1 )
+endif (BUILD_STATIC)
+
+option (BUILD_EXECUTABLE ON "Build LuaJIT executable")
+
+if (BUILD_EXECUTABLE)
+  ## LuaJIT Executable
+  add_executable ( luajit src/luajit.c src/luajit.rc )
+  target_link_libraries ( luajit liblua )
+endif (BUILD_EXECUTABLE)
 
 # On Windows build a no-console variant also
 if ( LUA_BUILD_WLUA )
@@ -319,8 +338,18 @@ if ( LUA_BUILD_WLUA )
 endif ()
 
 ## INSTALL
-install_executable( luajit )
-install_library( liblua )
+if (BUILD_EXECUTABLE)
+  install_executable( luajit )
+endif (BUILD_EXECUTABLE)
+
+if (BUILD_STATIC)
+  install_library( liblua_static )
+endif (BUILD_STATIC)
+
+if (BUILD_SHARED)
+  install_library( liblua )
+endif (BUILD_SHARED)
+
 install_header( src/lua.h src/luajit.h src/lua.hpp ${CMAKE_CURRENT_BINARY_DIR}/luaconf.h src/lualib.h src/lauxlib.h )
 
 install_doc ( doc/ )
